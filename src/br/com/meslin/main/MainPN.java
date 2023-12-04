@@ -1,10 +1,11 @@
 package br.com.meslin.main;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
-
 import br.com.meslin.main.events.GPS;
 import br.com.meslin.main.events.PM25;
+import br.com.meslin.model.Region;
 import com.espertech.esper.client.*;
 import com.espertech.esper.event.map.MapEventBean;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -32,18 +33,21 @@ public class MainPN extends ModelApplication implements UpdateListener {
 
 		EPAdministrator cepAdm = cep.getEPAdministrator();
 
-		String cepStatement = "select 'Pouca poluição' poluicao from PM25 where concentration < 1.0";
-		String cepStatement2 = "select 'Muito poluído' poluicao from PM25 where concentration > 1.0";
+		String cepStatement = "select 'Pouca poluição' as poluicao from PM25 where concentration < 1.0";
+		String cepStatement2 = "select 'Muito poluído' as poluicao from PM25 where concentration > 1.0";
+
+		String cepStatement3 = "select latitude, longitude from GPS.win:time_batch(1 min)";
 
 		EPStatement cepInspector = cepAdm.createEPL(cepStatement);
 		EPStatement cepInspector2 = cepAdm.createEPL(cepStatement2);
+		EPStatement cepInspector3 = cepAdm.createEPL(cepStatement3);
 
 		cepInspector.addListener(this);
 		cepInspector2.addListener(this);
+		cepInspector3.addListener(this);
 	}
 
 	public static void main(String[] args) {
-    	// creating missing environment variable
 		Map<String,String> env = new HashMap<String, String>();
 		env.putAll(System.getenv());
 		if(System.getenv("app.consumer.topics") == null) 			env.put("app.consumer.topics", "AppModel");
@@ -63,13 +67,13 @@ public class MainPN extends ModelApplication implements UpdateListener {
 		new MainPN();
 	}
 
-	private void sendGroupcastMessage(String message) {
+	private void sendGroupcastMessage(String message, String group) {
 		//System.out.print("Mensagem groupcast. Entre com o número do grupo: ");
 		//String group = keyboard.nextLine();
 		//System.out.print("Entre com a mensagem: ");
 		//String messageText = keyboard.nextLine();
-		String group = "83";
-		System.out.println(String.format("Enviando mensagem %s para o grupo %s.", message, group));
+		//String group = "10";
+		//System.out.println(String.format("Enviando mensagem %s para o grupo %s.", message, group));
 		
 		try {
 			sendRecord(createRecord("GroupMessageTopic", group, swap.SwapDataSerialization(createSwapData(message))));
@@ -90,34 +94,34 @@ public class MainPN extends ModelApplication implements UpdateListener {
 			Map<String, String> map = objectMapper.readValue(data.getMessage(), typeRef);
 			String payload = map.get("payload").replaceAll("^\"|\"$", "").replace("\\", "");
 
-			TypeReference<Map<String, Object>> typeRef3 = new TypeReference<Map<String, Object>>() {};
-			Map<String, Object> eventDict = objectMapper.readValue(payload, typeRef3);
-			if (eventDict.get("event_name") != null) {
+
+			if (payload.contains("event_name")) {
+				TypeReference<Map<String, Object>> typeRef2 = new TypeReference<Map<String, Object>>() {};
+				Map<String, Object> eventDict = objectMapper.readValue(payload, typeRef2);
 				Map<String, Object> eventData = (Map<String, Object>) eventDict.get("event_data");
 				double concentration = (double) eventData.get("pm25");
+
 				PM25 pmData = new PM25(concentration);
 				System.out.println("Concentration " + concentration);
 				cepRT.sendEvent(pmData);
+
+			} else if (payload.contains("sensor_name")) {
+				TypeReference<List<Map<String, Object>>> typeRef3 = new TypeReference<List<Map<String, Object>>>() {};
+				List<Map<String, Object>> sensorDataList = objectMapper.readValue(payload, typeRef3);
+
+				if (sensorDataList.size() > 6) {
+					Map<String, Object> gpsDataArray = sensorDataList.get(7);
+					List<Double> gpsList = (List<Double>) gpsDataArray.get("sensor_data");
+
+					double latitude = gpsList.get(0);
+					double longitude = gpsList.get(1);
+					int region = 10;
+
+					GPS gpsData = new GPS(latitude, longitude, region);
+
+					cepRT.sendEvent(gpsData);
+				}
 			}
-
-			// GPS
-			/*
-			String payload = map.get("payload").replace("\\", "").replaceAll("^\"|\"$", "");
-			TypeReference<List<Map<String, Object>>> typeRef2 = new TypeReference<List<Map<String, Object>>>() {};
-			List<Map<String, Object>> sensorDataList = objectMapper.readValue(payload, typeRef2);
-
-			if (sensorDataList.size() > 6) {
-				Map<String, Object> gpsDataArray = sensorDataList.get(7);
-				List<Double> gpsList = (List<Double>) gpsDataArray.get("sensor_data");
-
-				double latitude = gpsList.get(0);
-				double longitude = gpsList.get(1);
-
-				GPS gpsData = new GPS(latitude, longitude);
-
-				cepRT.sendEvent(gpsData);
-			}*/
-
 		} catch (NullPointerException e) {
 			e.printStackTrace();
 		} catch (Exception e) {
@@ -130,8 +134,11 @@ public class MainPN extends ModelApplication implements UpdateListener {
 		Map<String, Object> props = ((MapEventBean) newEvents[0]).getProperties();
 		System.out.println("Just got an CEP event: " + props);
 
+		// Usa latitude e longitude para descobrir número da região
+		int regionNumber;
+
 		// Somente para processing node
-		//sendGroupcastMessage(text, latitude, longitude);
+		//sendGroupcastMessage(text, "10");
 	}
 
 }

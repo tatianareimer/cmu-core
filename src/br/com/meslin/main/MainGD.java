@@ -104,6 +104,10 @@ public class MainGD implements GroupSelection {
         new MainGD();
     }
 
+	public List<Region> getRegionList() {
+		return this.regionList;
+	}
+
     /**
      * groupsIdentification<br>
      * @return a set containing all groups (a group is an Integer)
