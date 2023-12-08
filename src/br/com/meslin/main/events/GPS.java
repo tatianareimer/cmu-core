@@ -18,4 +18,8 @@ public class GPS {
     public double getLongitude() {
         return longitude;
     }
+
+    public int getRegion() {
+        return region;
+    }
 }
