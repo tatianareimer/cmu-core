@@ -19,6 +19,7 @@ import br.com.meslin.auxiliar.StaticLibrary;
 import ckafka.data.Swap;
 import ckafka.data.SwapData;
 import main.java.application.ModelApplication;
+import org.openstreetmap.gui.jmapviewer.Coordinate;
 
 public class MainPN extends ModelApplication implements UpdateListener {
 	private Swap swap;
@@ -101,7 +102,7 @@ public class MainPN extends ModelApplication implements UpdateListener {
 		//System.out.print("Entre com a mensagem: ");
 		//String messageText = keyboard.nextLine();
 		//String group = "10";
-		//System.out.println(String.format("Enviando mensagem %s para o grupo %s.", message, group));
+		System.out.println(String.format("Enviando mensagem %s para o grupo %s.", message, group));
 		
 		try {
 			sendRecord(createRecord("GroupMessageTopic", group, swap.SwapDataSerialization(createSwapData(message))));
@@ -162,18 +163,11 @@ public class MainPN extends ModelApplication implements UpdateListener {
 		if (newEvents[0] instanceof ObjectArrayEventBean) {
 			Object[] propsArray = ((ObjectArrayEventBean) newEvents[0]).getProperties();
 			Object lastProp = propsArray[propsArray.length-1];
-			//for (Object prop : propsArray) {
 			System.out.println("Just got a CEP event property: " + lastProp);
-			//}
-
-			//System.out.println("Just got an CEP event: " + props);
-
+			int aqi = NowCast.calculateAQI((double) lastProp);
+			String quality = NowCast.getQuality(aqi);
+			sendGroupcastMessage(quality, "10");
 		}
-
-		//System.out.println("Just got an CEP event: " + newEvents[0]);
-
-		// Somente para processing node
-		//sendGroupcastMessage(text, "10");
 	}
 
 }

@@ -8,14 +8,14 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 public class NowCast {
+    static String filePath = System.getProperty("user.dir") + "/src/br/com/meslin/main/aqi/concentrations.csv";
     static double[] firstColumnDoubles;
 
     public static void main(String[] args) {
     }
 
     private static double[] getCSVData() {
-        String rootPath = System.getProperty("user.dir");
-        String filePath = rootPath + "/src/br/com/meslin/main/aqi/concentrations.csv";
+
         int numberOfRowsToRetrieve = 11;
 
         try {
@@ -41,7 +41,6 @@ public class NowCast {
     public static int calculateAQI(double concentrationNow) {
         double[] last11HourConcentrations = getCSVData();
         double[] last12HourConcentrations = addDataToLastPosition(last11HourConcentrations, concentrationNow);
-
         double maxConcentration = getMaxValue(last11HourConcentrations);
         double minConcentration = getMinValue(last12HourConcentrations);
         double diff = maxConcentration - minConcentration;
@@ -96,25 +95,34 @@ public class NowCast {
         return (int) iqa;
     }
 
+    public static String getQuality(double aqi) {
+        if (aqi <= 40) {
+            return "{'quality':'Boa', 'color':'00cc00'}";
+        } else if (aqi > 40 && aqi <= 80) {
+            return "{'quality':'Moderad', 'color':'ffff00'}";
+        } else if (aqi > 80 && aqi <= 120) {
+            return "{'quality':'Ruim', 'color':'ffaa71'}";
+        } else if (aqi > 120 && aqi <= 200) {
+            return "{'quality':'Muito Ruim', 'color':'ff0f03'}";
+        } else {
+            return "{'quality':'Péssima', 'color':'990066'}";
+        }
+    }
+
     private static double[] addDataToLastPosition(double[] array, double data) {
-        // Create a new array with increased length
         double[] newArray = Arrays.copyOf(array, array.length + 1);
 
-        // Add data to the last position
         newArray[newArray.length - 1] = data;
-
         return newArray;
     }
 
     private static double getMaxValue(double[] array) {
-        // Use DoubleStream to find the maximum value
         return Arrays.stream(array)
                 .max()
                 .orElseThrow(() -> new IllegalArgumentException("Array is empty"));
     }
 
     private static double getMinValue(double[] array) {
-        // Use DoubleStream to find the minimum value
         return Arrays.stream(array)
                 .min()
                 .orElseThrow(() -> new IllegalArgumentException("Array is empty"));
